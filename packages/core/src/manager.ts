@@ -32,6 +32,12 @@ export interface Execution {
   preview?: ((plans: ToolResult[], environment: Environment) => void) | undefined
 }
 
+export interface Progress {
+  operation: Operation
+  phase: 'detect' | 'query' | 'lock' | 'plan' | 'execute' | 'verify' | 'recover' | 'save' | 'idle'
+  tool?: ToolId | undefined
+}
+
 export class Manager {
   private npm: Npm
   private history: HistoryStore
@@ -40,9 +46,14 @@ export class Manager {
     private runner: Runner,
     private signal?: AbortSignal,
     directory?: string,
+    private onProgress?: (progress: Progress) => void,
   ) {
     this.npm = new Npm(env, runner, signal)
     this.history = new HistoryStore(env, directory)
+  }
+
+  private progress(operation: Operation, phase: Progress['phase'], tool?: ToolId): void {
+    this.onProgress?.({ operation, phase, tool })
   }
 
   private async local(id: ToolId): Promise<ToolResult> {
@@ -76,13 +87,16 @@ export class Manager {
       let output = result(id)
       try {
         if (this.signal?.aborted) throw new AppError('CANCELLED', '操作已取消。', 130)
+        this.progress(request.operation, 'detect', id)
         output = await this.local(id)
         if (
           request.operation === 'check' ||
           request.operation === 'versions' ||
           request.operation === 'doctor'
-        )
+        ) {
+          this.progress(request.operation, 'query', id)
           output.registry = await this.npm.registry(tools[id])
+        }
         if (request.operation === 'versions') {
           output.versions = await this.npm.versions(tools[id], request.includePrerelease)
           output.message = `找到 ${output.versions.length} 个${request.includePrerelease ? '' : '稳定'}版本；可见不代表当前环境一定可安装。`
@@ -193,10 +207,15 @@ export class Manager {
     let release: (() => Promise<void>) | undefined
     const results: ToolResult[] = []
     try {
+      this.progress(request.operation, 'lock')
       release = await this.history.lock()
       const ids = request.all ? toolIds : [request.tool!]
-      for (const id of ids) results.push(await this.plan(id, request))
+      for (const id of ids) {
+        this.progress(request.operation, 'plan', id)
+        results.push(await this.plan(id, request))
+      }
       const pending = results.filter((item) => item.status === 'success')
+      this.progress(request.operation, 'idle')
       if (pending.length) execution.preview?.(results, this.env)
       if (pending.length && !execution.yes && !(await execution.confirm(results, this.env))) {
         for (const item of pending) {
@@ -213,6 +232,7 @@ export class Manager {
         try {
           if (this.signal?.aborted)
             throw new AppError('CANCELLED', '用户中断，未执行后续变更。', 130)
+          this.progress(request.operation, 'verify', item.tool)
           this.history.assertLock()
           const current = await inspect(tools[item.tool], this.env, this.runner)
           if (
@@ -222,8 +242,10 @@ export class Manager {
           )
             throw new AppError('STATE_CHANGED', '确认后安装状态发生变化，请重新执行操作。', 3)
           attempted = true
+          this.progress(request.operation, 'execute', item.tool)
           if (request.operation === 'uninstall') await this.npm.uninstall(tools[item.tool])
           else await this.npm.install(tools[item.tool], item.targetVersion!)
+          this.progress(request.operation, 'verify', item.tool)
           const after = await inspect(tools[item.tool], this.env, this.runner)
           item.installation = after
           item.changed = true
@@ -244,6 +266,7 @@ export class Manager {
         } catch (error) {
           results[index] = this.failure(item, error)
           if (attempted) {
+            this.progress(request.operation, 'recover', item.tool)
             const after = await inspect(tools[item.tool], this.env, this.runner)
             const failed = results[index]
             if (!failed) throw new AppError('INTERNAL_ERROR', '操作结果缺失。')
@@ -257,6 +280,7 @@ export class Manager {
           }
         }
         try {
+          this.progress(request.operation, 'save', item.tool)
           await this.history.record(
             request.operation,
             tools[item.tool].package,

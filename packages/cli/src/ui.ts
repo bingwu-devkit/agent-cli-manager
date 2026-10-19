@@ -11,6 +11,8 @@ import {
   type Request,
   redact,
 } from '@agent-cli-manager/core'
+import { state, toolName } from './colors.js'
+import { Loading, loadingMessage } from './loading.js'
 
 updateSettings({ messages: { cancel: '已取消', error: '操作失败' } })
 
@@ -26,8 +28,6 @@ const labels: Record<string, string> = {
   external: '其他来源',
   conflict: '存在冲突',
   broken: '安装损坏',
-  compatible: '满足已声明约束',
-  incompatible: '不兼容',
   unknown: '未知',
 }
 
@@ -35,6 +35,95 @@ function answer<T>(value: T): Exclude<T, symbol> {
   if (typeof value === 'symbol') throw new AppError('CANCELLED', '用户取消。', 130)
   // eslint-disable-next-line typescript/no-unsafe-type-assertion -- The symbol branch above is excluded at runtime; TypeScript cannot narrow this generic conditional type.
   return value as Exclude<T, symbol>
+}
+
+function shortMessage(message: string): string {
+  return (
+    redact(message)
+      .trim()
+      .split(/[\r\n]/, 1)[0] ?? ''
+  ).replace(/\s+/g, ' ')
+}
+
+function resultState(item: ToolResult): string {
+  return item.status === 'success' ? (item.installation?.status ?? 'success') : item.status
+}
+
+function versionText(item: ToolResult, mode: 'result' | 'check' | 'plan'): string {
+  const installation = item.installation
+  const current = installation ? installation.commandVersion : item.currentVersion
+  let version = state(
+    installation?.status === 'not-installed' ? '未安装' : (current ?? '版本未知'),
+    installation?.status === 'not-installed'
+      ? 'not-installed'
+      : current
+        ? resultState(item)
+        : 'unknown',
+  )
+  if (mode === 'plan' && item.status === 'success')
+    version += ` → ${state(item.targetVersion ?? '未安装', item.targetVersion ? 'success' : 'not-installed')}`
+  else if (mode === 'check' && item.updateAvailable && item.targetVersion)
+    version += ` → ${state(item.targetVersion, 'success')}`
+  return version
+}
+
+function printTool(item: ToolResult, mode: 'result' | 'check' | 'plan' = 'result'): void {
+  const installation = item.installation
+  let issue = ''
+  if (['blocked', 'failed', 'cancelled'].includes(item.status))
+    issue = `${labels[item.status]}：${shortMessage(item.message) || item.errorCode || '操作未完成。'}`
+  else if (installation && ['external', 'conflict', 'broken'].includes(installation.status))
+    issue = `${labels[installation.status]}：${shortMessage(installation.message)}`
+  console.log(
+    `${toolName(item.tool)} ${versionText(item, mode)}${issue ? ` · ${state(issue, resultState(item))}` : ''}`,
+  )
+}
+
+function printDoctor(report: Report): void {
+  if (report.message) console.log(state(shortMessage(report.message), report.status))
+  if (report.environment) {
+    console.log(`Node ${report.environment.nodeVersion} · npm ${report.environment.npmVersion}`)
+    console.log(`全局位置：${redact(report.environment.prefix)}`)
+  }
+  const registries = new Map<string, ToolId[]>()
+  for (const item of report.results) {
+    if (!item.registry) continue
+    const registry = redact(item.registry)
+    const group = registries.get(registry) ?? []
+    group.push(item.tool)
+    registries.set(registry, group)
+  }
+  for (const [registry, group] of registries) {
+    const shared = group.length === report.results.length
+    console.log(`registry：${registry}${shared ? '' : `（${group.map(toolName).join('、')}）`}`)
+  }
+  if (report.results.length && (report.environment || registries.size)) console.log('')
+  for (const item of report.results) {
+    const installation = item.installation
+    const status = resultState(item)
+    const label = status === 'managed' ? '正常' : labels[status]!
+    console.log(
+      `${toolName(item.tool)} ${versionText(item, 'result')}${status === 'not-installed' ? '' : ` · ${state(label, status)}`}`,
+    )
+    const failed = ['blocked', 'failed', 'cancelled'].includes(item.status)
+    if (failed) {
+      const reason = shortMessage(item.message) || item.errorCode || '诊断未完成。'
+      const code = item.errorCode && !reason.includes(item.errorCode) ? `（${item.errorCode}）` : ''
+      console.log(`  ${state(reason + code, item.status)}`)
+    }
+    if (installation && ['external', 'conflict', 'broken'].includes(installation.status)) {
+      const reason = shortMessage(installation.message)
+      if (reason && (!failed || reason !== shortMessage(item.message)))
+        console.log(`  ${state(reason, installation.status)}`)
+      if (installation.packageVersion !== installation.commandVersion)
+        console.log(
+          `  npm 包：${installation.packageVersion ?? '无'} · 命令：${installation.commandVersion ?? '未知'}`,
+        )
+      for (const path of new Set(installation.paths)) console.log(`  ${redact(path)}`)
+    }
+    for (const warning of new Set(item.warnings.map(shortMessage).filter(Boolean)))
+      console.log(state(`  提示：${warning}`, 'unknown'))
+  }
 }
 
 export function printReport(report: Report, json = false): void {
@@ -46,54 +135,25 @@ export function printReport(report: Report, json = false): void {
     )
     return
   }
-  if (report.message) console.log(redact(report.message))
-  if (report.environment)
-    console.log(
-      `Node ${report.environment.nodeVersion} · npm ${report.environment.npmVersion}\n全局位置：${report.environment.prefix}`,
-    )
-  for (const item of report.results) {
-    console.log(
-      `\n${tools[item.tool].name} [${labels[item.status]}] ${item.currentVersion ?? '未知/未安装'}${item.targetVersion ? ` → ${item.targetVersion}` : ''}`,
-    )
-    console.log(redact(item.message))
-    if (item.errorCode) console.log(`错误码：${item.errorCode}`)
-    if (item.installation) {
-      console.log(
-        `安装状态：${labels[item.installation.status]} · 可管理：${item.installation.manageable ? '是' : '否'} · npm 包：${item.installation.packageVersion ?? '无'} · 命令：${item.installation.commandVersion ?? '未知'}`,
-      )
-      for (const path of item.installation.paths) console.log(`  ${path}`)
+  if (report.operation !== 'doctor') {
+    if (report.message) console.log(state(shortMessage(report.message), report.status))
+    for (const item of report.results) {
+      if (report.operation === 'versions' && item.versions?.length)
+        for (const version of item.versions) console.log(`${toolName(item.tool)} ${version}`)
+      else printTool(item, report.operation === 'check' ? 'check' : 'result')
     }
-    if (item.registry) console.log(`registry：${item.registry}`)
-    if (item.compatibility)
-      console.log(
-        `环境约束：Node=${labels[item.compatibility.node]} 系统=${labels[item.compatibility.os]} 架构=${labels[item.compatibility.cpu]}`,
-      )
-    if (item.versions) console.log(item.versions.join('\n'))
-    for (const warning of item.warnings) console.log(`提示：${redact(warning)}`)
+    return
   }
+  printDoctor(report)
 }
 
-export function showPlans(
-  plans: ToolResult[],
-  environment?: { prefix: string; root: string },
-): void {
+export function showPlans(plans: ToolResult[]): void {
   console.log('\n变更计划：')
-  if (environment) console.log(`全局位置：${environment.prefix}\n全局包目录：${environment.root}`)
-  for (const item of plans) {
-    console.log(
-      redact(
-        `${tools[item.tool].name}（${tools[item.tool].package}）：${item.currentVersion ?? '未安装'} → ${item.targetVersion ?? (item.status === 'success' ? '卸载' : '不执行')} [${labels[item.status]}]\n${item.message}\nregistry：${item.registry ?? '未查询'}`,
-      ),
-    )
-    for (const warning of item.warnings) console.log(`提示：${redact(warning)}`)
-  }
+  for (const item of plans) printTool(item, 'plan')
 }
 
-export async function confirmPlans(
-  plans: ToolResult[],
-  environment?: { prefix: string; root: string },
-): Promise<boolean> {
-  showPlans(plans, environment)
+export async function confirmPlans(plans: ToolResult[]): Promise<boolean> {
+  showPlans(plans)
   return answer(
     await confirm({
       message: '确认执行以上可执行项目？',
@@ -104,8 +164,9 @@ export async function confirmPlans(
   )
 }
 
-async function chooseVersion(manager: Manager, tool: ToolId): Promise<string> {
-  const versions = await manager.read({ operation: 'versions', tool })
+async function chooseVersion(manager: Manager, tool: ToolId, loading: Loading): Promise<string> {
+  const request: Request = { operation: 'versions', tool }
+  const versions = await loading.run(loadingMessage(request), () => manager.read(request))
   const item = versions.results[0]!
   if (!item.versions) throw new AppError(item.errorCode ?? 'NETWORK_ERROR', item.message)
   let offset = 0
@@ -152,12 +213,17 @@ async function chooseVersion(manager: Manager, tool: ToolId): Promise<string> {
   }
 }
 
-export async function menu(createManager: () => Promise<Manager>): Promise<void> {
+export async function menu(
+  createManager: () => Promise<Manager>,
+  loading = new Loading(),
+): Promise<void> {
+  const initialManager = await createManager()
+  const local = await loading.run('正在检测本地工具…', () =>
+    initialManager.read({ operation: 'list' }),
+  )
+  printReport(local)
+  if (local.exitCode === 130) throw new AppError('CANCELLED', '用户中断。', 130)
   while (true) {
-    const manager = await createManager()
-    const local = await manager.read({ operation: 'list' })
-    printReport(local)
-    if (local.exitCode === 130) throw new AppError('CANCELLED', '用户中断。', 130)
     const action = answer(
       await select({
         message: '选择操作（↑↓ 选择，回车确认，Esc 取消）',
@@ -177,6 +243,7 @@ export async function menu(createManager: () => Promise<Manager>): Promise<void>
       }),
     )
     if (action === 'exit') return
+    const manager = await createManager()
     let request: Request
     if (action === 'check' || action === 'doctor') request = { operation: action }
     else if (action === 'upgrade-all') request = { operation: 'upgrade', all: true }
@@ -185,7 +252,10 @@ export async function menu(createManager: () => Promise<Manager>): Promise<void>
         await select({
           message: '选择工具（↑↓ 选择，回车确认）',
           showInstructions: false,
-          options: Object.values(tools).map((item) => ({ value: item.id, label: item.name })),
+          options: Object.values(tools).map((item) => ({
+            value: item.id,
+            label: toolName(item.id),
+          })),
         }),
       )
       request =
@@ -193,14 +263,15 @@ export async function menu(createManager: () => Promise<Manager>): Promise<void>
           ? {
               operation: action === 'downgrade' ? 'downgrade' : 'install',
               tool,
-              version: await chooseVersion(manager, tool),
+              version: await chooseVersion(manager, tool, loading),
             }
           : { operation: action, tool }
     }
-    const output =
+    const output = await loading.run(loadingMessage(request), () =>
       request.operation === 'check' || request.operation === 'doctor'
-        ? await manager.read(request)
-        : await manager.mutate(request, { yes: false, interactive: true, confirm: confirmPlans })
+        ? manager.read(request)
+        : manager.mutate(request, { yes: false, interactive: true, confirm: confirmPlans }),
+    )
     printReport(output)
     if (output.exitCode === 130) throw new AppError('CANCELLED', '用户取消或中断。', 130)
   }

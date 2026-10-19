@@ -7,7 +7,6 @@
   "author": "BINGWU2003",
   "type": "module",
   "scripts": {
-    "acceptance": "pnpm build && node scripts/acceptance.mjs",
     "build": "turbo run build",
     "changeset": "changeset",
     "check": "pnpm format:check && pnpm lint && pnpm knip && turbo run typecheck test build",
@@ -32,7 +31,6 @@
     "oxlint": "catalog:",
     "oxlint-tsgolint": "catalog:",
     "publint": "catalog:",
-    "semver": "catalog:",
     "simple-git-hooks": "catalog:",
     "tsdown": "catalog:",
     "tsx": "catalog:",

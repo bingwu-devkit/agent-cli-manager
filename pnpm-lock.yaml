@@ -98,9 +98,6 @@ importers:
       publint:
         specifier: 'catalog:'
         version: 0.3.25
-      semver:
-        specifier: 'catalog:'
-        version: 7.8.5
       simple-git-hooks:
         specifier: 'catalog:'
         version: 2.14.0

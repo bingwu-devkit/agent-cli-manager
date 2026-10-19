@@ -14,9 +14,11 @@ import {
   parseTool,
 } from '@agent-cli-manager/core'
 import { confirmPlans, menu, printReport, showPlans } from './ui.js'
+import { Loading, loadingMessage } from './loading.js'
 
 const json = process.argv.includes('--json')
 const controller = new AbortController()
+const loading = new Loading({ json, signal: controller.signal })
 const interrupt = () => controller.abort()
 process.on('SIGINT', interrupt)
 process.on('SIGTERM', interrupt)
@@ -26,7 +28,17 @@ let operation = 'usage'
 let controlOutput = ''
 
 async function createManager(): Promise<Manager> {
-  return new Manager(await detectEnvironment(runner), runner, controller.signal)
+  return loading.run(
+    '正在检测 Node/npm 环境…',
+    async () =>
+      new Manager(
+        await detectEnvironment(runner),
+        runner,
+        controller.signal,
+        undefined,
+        loading.progress,
+      ),
+  )
 }
 
 program
@@ -77,14 +89,16 @@ async function execute(request: Request, command: Command): Promise<void> {
   const options = command.optsWithGlobals<{ yes?: boolean; json?: boolean }>()
   const manager = await createManager()
   const mutation = !['list', 'doctor', 'check', 'versions'].includes(request.operation)
-  const output = mutation
-    ? await manager.mutate(request, {
-        yes: !!options.yes,
-        interactive: !options.json && process.stdin.isTTY && process.stdout.isTTY,
-        confirm: confirmPlans,
-        preview: options.yes && !options.json ? showPlans : undefined,
-      })
-    : await manager.read(request)
+  const output = await loading.run(loadingMessage(request), () =>
+    mutation
+      ? manager.mutate(request, {
+          yes: !!options.yes,
+          interactive: !options.json && process.stdin.isTTY && process.stdout.isTTY,
+          confirm: confirmPlans,
+          preview: options.yes && !options.json ? showPlans : undefined,
+        })
+      : manager.read(request),
+  )
   printReport(output, !!options.json)
   process.exitCode = output.exitCode
 }
@@ -157,7 +171,7 @@ program.action(async () => {
     if (!json) program.outputHelp()
     throw new AppError('INVALID_ARGUMENT', '非交互环境必须指定子命令；使用 --help 查看帮助。', 2)
   }
-  await menu(createManager)
+  await menu(createManager, loading)
 })
 
 try {
