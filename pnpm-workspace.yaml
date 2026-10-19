@@ -27,7 +27,7 @@ catalog:
   simple-git-hooks: ^2.14.0
   tsdown: ^0.22.14
   tsx: ^4.23.15
-  turbo: ^2.11.7
+  turbo: ^2.11.8
   typescript: 6.0.3
   vitest: ^4.1.11
   zod: 4.6.7
