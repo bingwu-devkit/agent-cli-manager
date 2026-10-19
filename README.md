@@ -4,19 +4,18 @@
 
 需要 Node.js `^22.18.0 || ^24.0.0` 和可用的 npm。目标工具的 Node、系统和架构要求另外按目标版本检查；例如当前 Pi 要求 Node.js 22.19+，管理器可以运行不代表目标包一定兼容。
 
-## 本地使用
+## 安装与使用
 
-项目尚未发布至 npm。使用 pnpm 11.15.1 开发和运行：
+已发布至 npm：[agent-cli-manager](https://www.npmjs.com/package/agent-cli-manager)。全局安装后即可使用同名命令：
 
 ```powershell
-pnpm install
-pnpm build
-node packages/cli/dist/cli.mjs
-node packages/cli/dist/cli.mjs list
-node packages/cli/dist/cli.mjs check --json
+npm install -g agent-cli-manager
+agent-cli-manager
+agent-cli-manager list
+agent-cli-manager check --json
 ```
 
-构建后的 CLI 以 `agent-cli-manager` 为 npm 包名发布，并提供同名命令。下文示例使用该命令名；本地可替换为 `node packages/cli/dist/cli.mjs`。
+也可以使用 `npx agent-cli-manager@latest` 临时运行。更新管理器自身时执行 `npm install -g agent-cli-manager@latest`；`agent-cli-manager upgrade` 用于更新所管理的工具。
 
 根包 `agent-cli-manager` 是私有开发工作区。`packages/core`（`@agent-cli-manager/core`）是私有内部包，提供环境检测、版本管理和操作编排逻辑；`packages/cli`（`agent-cli-manager`）调用 core，提供参数解析、菜单和结果输出。仅发布 CLI，构建时将 core 逻辑合并进 CLI 产物；用户安装时无需下载 core 包。
 
@@ -112,6 +111,18 @@ Pi 的[当前官方说明](https://github.com/earendil-works/pi/tree/main/packag
 
 ## 开发与验收
 
+源码开发需要 pnpm 11.15.1。在仓库根目录安装依赖并构建后，可直接运行本地 CLI：
+
+```powershell
+pnpm install
+pnpm build
+node packages/cli/dist/cli.mjs
+node packages/cli/dist/cli.mjs list
+node packages/cli/dist/cli.mjs check --json
+```
+
+执行工程检查与验收：
+
 ```powershell
 pnpm check
 pnpm --filter @agent-cli-manager/example-basic start
@@ -128,4 +139,4 @@ pnpm acceptance
 
 发布工作流默认启用：推送到 `main` 时，Changesets 自动维护版本 PR，或发布待发布的 `agent-cli-manager` CLI 包。通过 `pnpm changeset` 记录变更，合并版本 PR 后发布对应版本。根包、core 和示例均为私有包，不发布。
 
-core 的行为变更也应为 `agent-cli-manager` 添加 Changeset，因为 core 实现随 CLI 一起交付。发布前须复查 npm 包名、工具映射和平台证据，并为 CLI 配置仓库信息及 npm Trusted Publisher。本项目使用 MIT 许可证。
+core 的行为变更也应为 `agent-cli-manager` 添加 Changeset，因为 core 实现随 CLI 一起交付。后续版本的操作步骤和发布验证见[发布说明](docs/releasing.md)。本项目使用 MIT 许可证。

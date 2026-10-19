@@ -5,6 +5,7 @@ CLI 以 `agent-cli-manager` 为 npm 包名发布，提供同名命令。源码�
 统一管理 Claude Code、Codex CLI、Pi coding agent 和 Gemini CLI 在当前 npm 全局环境中的版本。需要 Node.js `^22.18.0 || ^24.0.0` 和 npm；各目标版本的兼容性另行检查。
 
 ```sh
+npm install -g agent-cli-manager
 agent-cli-manager
 agent-cli-manager list
 agent-cli-manager check --json
@@ -13,6 +14,8 @@ agent-cli-manager upgrade --all --yes --json
 agent-cli-manager versions codex
 agent-cli-manager rollback claude
 ```
+
+也可通过 `npx agent-cli-manager@latest` 临时运行。更新管理器自身使用 `npm install -g agent-cli-manager@latest`；`upgrade` 命令更新的是所管理的工具。npm 包页面：[agent-cli-manager](https://www.npmjs.com/package/agent-cli-manager)。
 
 工具标识：`claude`、`codex`、`pi`、`gemini`。支持 `install --version <精确版本>`、`downgrade --version <精确版本>`、`uninstall` 和 `doctor`。`--yes` 跳过确认，仍执行来源和环境校验；非交互变更必须提供该参数。
 

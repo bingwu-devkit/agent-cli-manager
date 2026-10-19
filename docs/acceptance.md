@@ -22,7 +22,7 @@
 
 - `pnpm check` 包含格式、lint、Knip、类型检查、Vitest 和构建。
 - 受控测试覆盖来源冲突、Windows 包装文件归并、精确版本校验、稳定标签异常、兼容性、历史与锁、外部修改、失败后重检、批量部分失败、JSON、退出码、真实子进程取消及超时。
-- 使用 `pnpm pack` 打包后，在另一临时 prefix 中通过 npm 安装 tarball；生成的 `agent-cli-manager.cmd` 正确输出版本、中文帮助和 JSON 版本结果。未发布 npm 包。
+- 使用 `pnpm pack` 打包后，在另一临时 prefix 中通过 npm 安装 tarball；生成的 `agent-cli-manager.cmd` 正确输出版本、中文帮助和 JSON 版本结果。该项为本地打包安装验收。
 - 在真实 PowerShell 终端检查主菜单、本地状态、全部更新查询和退出；当前 VS Code 扩展提供的 Codex 被正确识别为其他来源。
 - CI 已配置 Windows、Linux、macOS × Node 22/24，但本地检查不代表远端矩阵已运行。
 
