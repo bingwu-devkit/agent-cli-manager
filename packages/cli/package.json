@@ -26,6 +26,8 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
+    "lint": "oxlint -c ../../oxlint.config.ts .",
+    "lint:fix": "oxlint -c ../../oxlint.config.ts . --fix",
     "prepack": "pnpm --filter @agent-cli-manager/core build && pnpm build && publint",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
