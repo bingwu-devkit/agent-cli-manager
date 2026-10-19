@@ -22,7 +22,7 @@
 
 | 标识     | 官方 npm 包                       | 默认稳定标签 |
 | -------- | --------------------------------- | ------------ |
-| `claude` | `@anthropic-ai/claude-code`       | `stable`     |
+| `claude` | `@anthropic-ai/claude-code`       | `latest`     |
 | `codex`  | `@openai/codex`                   | `latest`     |
 | `pi`     | `@earendil-works/pi-coding-agent` | `latest`     |
 | `gemini` | `@google/gemini-cli`              | `latest`     |
