@@ -1,0 +1,39 @@
+{
+  "name": "@agent-cli-manager/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agent CLI Manager 的环境检测、版本管理和操作编排逻辑",
+  "license": "MIT",
+  "author": "BINGWU2003",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "proper-lockfile": "catalog:",
+    "semver": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/proper-lockfile": "catalog:",
+    "@types/semver": "catalog:"
+  },
+  "engines": {
+    "node": "^22.18.0 || ^24.0.0"
+  }
+}

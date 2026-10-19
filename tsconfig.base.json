@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "allowImportingTsExtensions": false,
+    "esModuleInterop": true,
+    "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,
+    "lib": ["ESNext"],
+    "noEmit": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ESNext",
+    "verbatimModuleSyntax": true
+  }
+}

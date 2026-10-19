@@ -1,0 +1,46 @@
+{
+  "name": "agent-cli-manager",
+  "version": "0.1.0",
+  "description": "统一管理 Claude Code、Codex、Pi 和 Gemini CLI 的 npm 全局版本",
+  "license": "MIT",
+  "author": "BINGWU2003",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bingwu-devkit/agent-cli-manager.git",
+    "directory": "packages/cli"
+  },
+  "bin": {
+    "agent-cli-manager": "./dist/cli.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "prepack": "pnpm --filter @agent-cli-manager/core build && pnpm build && publint",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@clack/prompts": "catalog:",
+    "commander": "catalog:",
+    "proper-lockfile": "catalog:",
+    "semver": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@agent-cli-manager/core": "workspace:*"
+  },
+  "engines": {
+    "node": "^22.18.0 || ^24.0.0"
+  }
+}
