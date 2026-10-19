@@ -2,6 +2,14 @@
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": ["tsconfig.base.json", "tsconfig.node.json"],
   "tasks": {
+    "//#lint:check": {
+      "dependsOn": ["@agent-cli-manager/core#build"],
+      "outputs": []
+    },
+    "//#lint:write": {
+      "cache": false,
+      "dependsOn": ["@agent-cli-manager/core#build"]
+    },
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
