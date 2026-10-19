@@ -1,6 +1,6 @@
 {
   "name": "agent-cli-manager",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "统一管理 Claude Code、Codex、Pi 和 Gemini CLI 的 npm 全局版本",
   "license": "MIT",
   "author": "BINGWU2003",
