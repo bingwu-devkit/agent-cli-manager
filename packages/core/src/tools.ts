@@ -6,7 +6,7 @@ export const tools: Record<ToolId, Tool> = {
     name: 'Claude Code',
     package: '@anthropic-ai/claude-code',
     command: 'claude',
-    stableTag: 'stable',
+    stableTag: 'latest',
     legacyPackages: [],
     installArgs: [],
   },
