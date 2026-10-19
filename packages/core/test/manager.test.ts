@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { Manager, type Request } from '../src/manager.js'
+import { Manager, type Request, type Progress } from '../src/manager.js'
 import { AppError, type Environment, type ToolId, toolIds } from '../src/model.js'
 import { tools } from '../src/tools.js'
 import { canonical, inspect, parseCommandVersion } from '../src/environment.js'
@@ -16,7 +16,7 @@ afterEach(async () => {
   await Promise.all(temporary.splice(0).map((path) => rm(path, { recursive: true, force: true })))
 })
 
-async function fixture() {
+async function fixture(onProgress?: (progress: Progress) => void) {
   const directory = await mkdtemp(join(tmpdir(), 'agent-manager-test-'))
   temporary.push(directory)
   const prefix = join(directory, 'prefix')
@@ -112,7 +112,7 @@ async function fixture() {
       return { code: 0, stdout: '', stderr: '' }
     },
   }
-  const manager = new Manager(env, runner, undefined, state)
+  const manager = new Manager(env, runner, undefined, state, onProgress)
   const mutate = (request: Request) =>
     manager.mutate(request, { yes: true, interactive: false, confirm: async () => false })
   return { directory, state, env, runner, config, calls, manager, mutate, install }
@@ -367,6 +367,57 @@ describe('mutations and trusted rollback', () => {
     } finally {
       await release()
     }
+  })
+})
+
+describe('operation progress', () => {
+  it('reports the tool before local detection and registry queries', async () => {
+    const progress: Progress[] = []
+    const f = await fixture((event) => progress.push(event))
+    const output = await f.manager.read({ operation: 'check', tool: 'pi' })
+    expect(output.exitCode).toBe(0)
+    expect(progress).toEqual([
+      { operation: 'check', phase: 'detect', tool: 'pi' },
+      { operation: 'check', phase: 'query', tool: 'pi' },
+    ])
+  })
+
+  it('pauses before confirmation and reports the actual tool throughout a batch', async () => {
+    const progress: Progress[] = []
+    const f = await fixture((event) => progress.push(event))
+    await f.install('codex', '1.0.0')
+    await f.install('pi', '1.0.0')
+    const output = await f.manager.mutate(
+      { operation: 'upgrade', all: true },
+      {
+        yes: false,
+        interactive: true,
+        confirm: async () => {
+          expect(progress.at(-1)?.phase).toBe('idle')
+          expect(f.calls.some((args) => args[0] === 'install')).toBe(false)
+          return true
+        },
+      },
+    )
+    expect(output.exitCode).toBe(0)
+    expect(progress.filter((event) => event.phase === 'execute')).toEqual([
+      { operation: 'upgrade', phase: 'execute', tool: 'codex' },
+      { operation: 'upgrade', phase: 'execute', tool: 'pi' },
+    ])
+    expect(progress.filter((event) => event.phase === 'verify').map((event) => event.tool)).toEqual(
+      ['codex', 'codex', 'pi', 'pi'],
+    )
+  })
+
+  it('reports recovery while preserving interruption rechecks and exit code', async () => {
+    const progress: Progress[] = []
+    const f = await fixture((event) => progress.push(event))
+    await f.install('pi', '1.0.0')
+    f.config.cancel = true
+    const output = await f.mutate({ operation: 'upgrade', tool: 'pi' })
+    expect(output.exitCode).toBe(130)
+    expect(output.results[0]?.installation?.packageVersion).toBe('2.0.0')
+    expect(progress).toContainEqual({ operation: 'upgrade', phase: 'recover', tool: 'pi' })
   })
 })
 

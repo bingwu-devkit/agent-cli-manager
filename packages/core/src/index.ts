@@ -1,5 +1,5 @@
 export { detectEnvironment } from './environment.js'
-export { Manager, type Request } from './manager.js'
+export { Manager, type Request, type Progress } from './manager.js'
 export { AppError, asError, report, type Report, type ToolId, type ToolResult } from './model.js'
 export { exactVersion } from './npm.js'
 export { ProcessRunner, redact } from './process.js'

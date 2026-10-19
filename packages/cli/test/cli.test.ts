@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { stripVTControlCharacters } from 'node:util'
 import { describe, expect, it } from 'vitest'
 
 const entry = fileURLToPath(new URL('../dist/cli.mjs', import.meta.url))
@@ -34,6 +35,36 @@ describe('CLI package command contract', () => {
     const output = cli(['list', '--json'], { ...process.env, PATH: '' })
     expect(output.code).toBe(3)
     expect(JSON.parse(output.stdout)).toMatchObject({ errorCode: 'NPM_NOT_FOUND', exitCode: 3 })
+  })
+  it('keeps piped output plain by default and respects forced colors', () => {
+    const env = {
+      ...process.env,
+      PATH: '',
+      FORCE_COLOR: undefined,
+      NO_COLOR: undefined,
+      NODE_DISABLE_COLORS: undefined,
+    }
+    const plain = cli(['list'], env)
+    const colored = cli(['list'], { ...env, FORCE_COLOR: '3' })
+    expect(plain.code).toBe(3)
+    expect(colored.code).toBe(3)
+    expect(plain.stdout).toBe(stripVTControlCharacters(plain.stdout))
+    expect(colored.stdout).not.toBe(plain.stdout)
+    expect(stripVTControlCharacters(colored.stdout)).toBe(plain.stdout)
+    expect(plain.stderr).toBe('')
+    expect(colored.stderr).toBe('')
+  })
+  it('keeps JSON free of ANSI codes even when terminal colors are forced', () => {
+    const output = cli(['list', '--json'], {
+      ...process.env,
+      PATH: '',
+      FORCE_COLOR: '3',
+      NO_COLOR: undefined,
+      NODE_DISABLE_COLORS: undefined,
+    })
+    expect(output.stdout).toBe(stripVTControlCharacters(output.stdout))
+    expect(JSON.parse(output.stdout)).toMatchObject({ errorCode: 'NPM_NOT_FOUND', exitCode: 3 })
+    expect(output.stderr).toBe('')
   })
   it('provides text and JSON help/version without npm', () => {
     const env = { ...process.env, PATH: '' }
