@@ -2,15 +2,6 @@
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": ["tsconfig.base.json", "tsconfig.node.json"],
   "tasks": {
-    "lint": {
-      "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/oxlint.config.ts"],
-      "outputs": []
-    },
-    "lint:fix": {
-      "cache": false,
-      "dependsOn": ["^build"]
-    },
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]

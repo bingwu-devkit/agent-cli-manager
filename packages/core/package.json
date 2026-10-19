@@ -21,8 +21,6 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "lint": "oxlint -c ../../oxlint.config.ts .",
-    "lint:fix": "oxlint -c ../../oxlint.config.ts . --fix",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
