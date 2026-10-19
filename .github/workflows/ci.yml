@@ -41,17 +41,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check formatting
-        run: pnpm format:check
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Check unused code and dependencies
-        run: pnpm knip
-
-      - name: Typecheck
-        run: pnpm typecheck
+      - name: Run static checks
+        run: pnpm exec turbo run format:check lint knip typecheck
 
   test:
     name: Test (${{ matrix.os }}, Node.js ${{ matrix.node }})
