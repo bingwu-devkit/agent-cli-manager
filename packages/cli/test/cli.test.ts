@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { stripVTControlCharacters } from 'node:util'
 import { describe, expect, it } from 'vitest'
+import packageJson from '../package.json' with { type: 'json' }
 
 const entry = fileURLToPath(new URL('../dist/cli.mjs', import.meta.url))
 function cli(args: string[], env?: NodeJS.ProcessEnv) {
@@ -68,11 +69,11 @@ describe('CLI package command contract', () => {
   })
   it('provides text and JSON help/version without npm', () => {
     const env = { ...process.env, PATH: '' }
-    expect(cli(['--version'], env).stdout.trim()).toBe('0.1.0')
+    expect(cli(['--version'], env).stdout.trim()).toBe(packageJson.version)
     expect(cli(['--help'], env).stdout).toContain('统一管理')
     expect(JSON.parse(cli(['--version', '--json'], env).stdout)).toMatchObject({
       operation: 'version',
-      message: '0.1.0',
+      message: packageJson.version,
       exitCode: 0,
     })
     expect(JSON.parse(cli(['--help', '--json'], env).stdout)).toMatchObject({
